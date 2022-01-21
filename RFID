@@ -1,0 +1,91 @@
+//Liquid CRYSTAL
+#include <LiquidCrystal.h>
+
+const int rs = 7, en = 6, d4 = 5, d5 = 4, d6 = 3,d7 = 2;
+LiquidCrystal lcd(rs, en, d4, d5 , d6, d7);
+
+//TONE
+#define TONE 531
+
+//Buzzer 
+const int buzzer = A5;
+
+#include <SPI.h>
+#include <MFRC522.h>
+
+const int PIN_RST = 9;
+const int PIN_SS = 10;
+
+String uidTag = "";
+const int pinRelay = 8;
+
+MFRC522 mfrc(PIN_SS, PIN_RST);
+
+void setup (){
+  //LCD
+  lcd.begin (16,2);
+  
+  //RFID
+  Serial.begin(9600);
+  SPI.begin();
+  mfrc.PCD_Init();
+  pinMode(pinRelay,OUTPUT);
+
+  //Buzzer
+  pinMode(buzzer, OUTPUT);
+
+byte versi = mfrc.PCD_ReadRegister(mfrc.VersionReg);
+if (versi == 0x00 || versi == 0xFF) {
+  lcd.setCursor(0,1);
+  lcd.print("MODUL TIDAK ADA");
+  while(true);
+  }
+  lcd.setCursor(0,1);
+  lcd.print("SIAP MEMBACA");
+}
+
+void loop(){
+   
+   lcd.setCursor(0,0);
+   lcd.print("TEMPELKAN KARTU");
+   digitalWrite(pinRelay,HIGH);
+   
+   //Cek untuk kartu yang disisipkan
+   if (!mfrc.PICC_IsNewCardPresent()){
+    return;
+   }
+   if(!mfrc.PICC_ReadCardSerial()){
+    return;
+   }
+   
+    uidTag = "";
+    
+    for (byte j = 0; j < mfrc.uid.size; j++){
+      char teks[3];
+      sprintf(teks, "%02X", mfrc.uid.uidByte[j]);
+      uidTag += teks;
+    }
+    
+    if (uidTag.substring(0) == "05892767D3E100" || uidTag.substring(0) == "04743DF2BC5380") {
+      digitalWrite(pinRelay,LOW);
+      
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("NO ID :");
+      lcd.setCursor(0,1);
+      lcd.print(uidTag);
+      delay(1000);
+      lcd.print("SELAMAT DATANG");
+      delay(5000);
+      lcd.clear();
+      } 
+      else {
+      lcd.clear();
+      lcd.setCursor(0,1);
+      lcd.print("Akses ditolak!!");
+      tone(buzzer,TONE,2000);
+      delay(2000);
+      lcd.clear();
+      }
+      mfrc.PICC_HaltA();
+}
